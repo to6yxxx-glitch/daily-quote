@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#1a1a2e" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="每日一句" />
+  <title>每日一句</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;600;900&family=Noto+Sans+TC:wght@300;400&display=swap" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0e0e1a;
+      --surface: #16162a;
+      --surface2: #1e1e38;
+      --border: rgba(255,255,255,0.07);
+      --accent-pos: #f9c74f;
+      --accent-neg: #a8dadc;
+      --text: #f0eff4;
+      --muted: rgba(240,239,244,0.45);
+      --radius: 20px;
+      --shadow: 0 8px 40px rgba(0,0,0,0.4);
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Noto Sans TC', sans-serif;
+      overscroll-behavior: none;
+    }
+
+    body {
+      min-height: 100svh;
+      display: flex;
+      flex-direction: column;
+      padding: env(safe-area-inset-top, 16px) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0);
+    }
+
+    /* ─── Background orbs ─── */
+    .bg-orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.18;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .bg-orb.a { width: 340px; height: 340px; background: #5b4fcf; top: -80px; left: -80px; }
+    .bg-orb.b { width: 280px; height: 280px; background: #c9a84c; bottom: 10%; right: -60px; }
+    .bg-orb.c { width: 200px; height: 200px; background: #4a9eba; top: 45%; left: 20%; }
+
+    /* ─── Layout ─── */
+    .app {
+      position: relative;
+      z-index: 1;
+      max-width: 480px;
+      margin: 0 auto;
+      width: 100%;
+      padding: 20px 20px 32px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ─── Header ─── */
+    header {
+      text-align: center;
+      padding-top: 8px;
+    }
+    .app-title {
+      font-family: 'Noto Serif TC', serif;
+      font-weight: 900;
+      font-size: 1.1rem;
+      letter-spacing: 0.25em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+    .date-line {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 4px;
+      letter-spacing: 0.1em;
+    }
+
+    /* ─── Today card ─── */
+    .today-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px 28px;
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+      animation: fadeUp 0.6s ease both;
+    }
+    .today-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      transition: opacity 0.4s;
+      border-radius: inherit;
+    }
+    .today-card.pos::before { background: radial-gradient(ellipse at top left, rgba(249,199,79,0.08), transparent 60%); opacity: 1; }
+    .today-card.neg::before { background: radial-gradient(ellipse at top left, rgba(168,218,220,0.08), transparent 60%); opacity: 1; }
+
+    .mood-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.7rem;
+      font-weight: 400;
+      letter-spacing: 0.12em;
+      padding: 3px 10px;
+      border-radius: 100px;
+      margin-bottom: 18px;
+    }
+    .mood-tag.pos { background: rgba(249,199,79,0.12); color: var(--accent-pos); }
+    .mood-tag.neg { background: rgba(168,218,220,0.12); color: var(--accent-neg); }
+    .mood-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+    .today-label {
+      font-size: 0.72rem;
+      color: var(--muted);
+      letter-spacing: 0.15em;
+      margin-bottom: 14px;
+    }
+
+    .quote-text {
+      font-family: 'Noto Serif TC', serif;
+      font-weight: 600;
+      font-size: clamp(1.25rem, 5vw, 1.6rem);
+      line-height: 1.7;
+      letter-spacing: 0.03em;
+      color: var(--text);
+    }
+
+    .quote-author {
+      margin-top: 16px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    .accent-line {
+      width: 36px;
+      height: 2px;
+      border-radius: 2px;
+      margin-top: 20px;
+    }
+    .pos .accent-line { background: var(--accent-pos); }
+    .neg .accent-line { background: var(--accent-neg); }
+
+    /* ─── Draw card ─── */
+    .draw-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px 28px;
+      box-shadow: var(--shadow);
+      display: none;
+      animation: fadeUp 0.4s ease both;
+      position: relative;
+    }
+    .draw-card.visible { display: block; }
+    .draw-card .today-label { margin-bottom: 12px; }
+
+    /* ─── Buttons ─── */
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border: none;
+      cursor: pointer;
+      font-family: 'Noto Sans TC', sans-serif;
+      font-size: 0.9rem;
+      border-radius: 14px;
+      padding: 14px 20px;
+      transition: transform 0.15s, opacity 0.15s, box-shadow 0.15s;
+      width: 100%;
+      letter-spacing: 0.05em;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn:active { transform: scale(0.97); opacity: 0.85; }
+
+    .btn-draw {
+      background: linear-gradient(135deg, #3a3a6e, #5b4fcf);
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(91,79,207,0.35);
+    }
+    .btn-draw:hover { box-shadow: 0 6px 28px rgba(91,79,207,0.5); }
+
+    .btn-add {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-add:hover { background: #262645; }
+
+    /* ─── Add form ─── */
+    .add-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      cursor: pointer;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .section-title {
+      font-size: 0.85rem;
+      font-weight: 400;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+    }
+    .section-arrow {
+      font-size: 0.8rem;
+      color: var(--muted);
+      transition: transform 0.25s;
+    }
+    .section-arrow.open { transform: rotate(180deg); }
+
+    .add-form {
+      padding: 0 20px 20px;
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      animation: fadeDown 0.25s ease both;
+    }
+    .add-form.visible { display: flex; }
+
+    textarea {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+      font-family: 'Noto Serif TC', serif;
+      font-size: 1rem;
+      line-height: 1.7;
+      padding: 14px 16px;
+      resize: vertical;
+      min-height: 90px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    textarea:focus { border-color: rgba(91,79,207,0.5); }
+    textarea::placeholder { color: var(--muted); font-family: 'Noto Sans TC', sans-serif; font-size: 0.85rem; }
+
+    .radio-group {
+      display: flex;
+      gap: 10px;
+    }
+    .radio-label {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 0.82rem;
+      border: 1px solid var(--border);
+      transition: background 0.2s, border-color 0.2s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .radio-label input { display: none; }
+    .radio-label.pos-opt { color: var(--accent-pos); }
+    .radio-label.neg-opt { color: var(--accent-neg); }
+    .radio-label.selected.pos-opt { background: rgba(249,199,79,0.1); border-color: rgba(249,199,79,0.35); }
+    .radio-label.selected.neg-opt { background: rgba(168,218,220,0.1); border-color: rgba(168,218,220,0.35); }
+
+    .btn-submit {
+      background: linear-gradient(135deg, #3a3a6e, #5b4fcf);
+      color: #fff;
+      padding: 13px;
+      box-shadow: 0 4px 16px rgba(91,79,207,0.3);
+    }
+
+    /* ─── Quote list ─── */
+    .list-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+    .list-body { padding: 0 16px 16px; display: none; }
+    .list-body.visible { display: block; }
+    .list-empty {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.82rem;
+      padding: 20px 0;
+    }
+
+    .quote-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+      animation: fadeUp 0.3s ease both;
+    }
+    .quote-item:last-child { border-bottom: none; }
+    .qi-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      margin-top: 9px;
+      flex-shrink: 0;
+    }
+    .qi-dot.pos { background: var(--accent-pos); }
+    .qi-dot.neg { background: var(--accent-neg); }
+    .qi-text {
+      flex: 1;
+      font-family: 'Noto Serif TC', serif;
+      font-size: 0.9rem;
+      line-height: 1.65;
+      color: var(--text);
+    }
+    .qi-del {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 1rem;
+      padding: 2px 4px;
+      margin-top: 2px;
+      border-radius: 6px;
+      transition: color 0.15s, background 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .qi-del:hover { color: #ff6b6b; background: rgba(255,107,107,0.1); }
+
+    /* ─── Animations ─── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeDown {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes flipIn {
+      0%   { opacity: 0; transform: rotateX(15deg) scale(0.97); }
+      100% { opacity: 1; transform: rotateX(0deg) scale(1); }
+    }
+    .flip-anim { animation: flipIn 0.45s cubic-bezier(0.34,1.56,0.64,1) both; }
+
+    /* ─── Install hint ─── */
+    .install-hint {
+      text-align: center;
+      font-size: 0.7rem;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      padding-bottom: 4px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="bg-orb a"></div>
+<div class="bg-orb b"></div>
+<div class="bg-orb c"></div>
+
+<div class="app">
+
+  <header>
+    <div class="app-title">每 日 一 句</div>
+    <div class="date-line" id="dateLine"></div>
+  </header>
+
+  <!-- Today's quote -->
+  <div class="today-card" id="todayCard">
+    <div class="mood-tag" id="todayMood"><span class="mood-dot"></span><span id="todayMoodText"></span></div>
+    <div class="today-label">今日語錄</div>
+    <div class="quote-text" id="todayText"></div>
+    <div class="quote-author" id="todayAuthor"></div>
+    <div class="accent-line"></div>
+  </div>
+
+  <!-- Draw button -->
+  <button class="btn btn-draw" onclick="drawRandom()">
+    <span>🎲</span> 再抽一句
+  </button>
+
+  <!-- Drawn quote -->
+  <div class="draw-card" id="drawCard">
+    <div class="today-label">隨機抽到</div>
+    <div class="mood-tag" id="drawMood"><span class="mood-dot"></span><span id="drawMoodText"></span></div>
+    <div class="quote-text" id="drawText"></div>
+    <div class="quote-author" id="drawAuthor"></div>
+    <div class="accent-line"></div>
+  </div>
+
+  <!-- Add new quote -->
+  <div class="add-section">
+    <div class="section-header" onclick="toggleSection('addForm','addArrow')">
+      <span class="section-title">＋ 新增語錄</span>
+      <span class="section-arrow" id="addArrow">▼</span>
+    </div>
+    <div class="add-form" id="addForm">
+      <textarea id="newQuoteText" placeholder="輸入你的語錄…" maxlength="120"></textarea>
+      <div class="radio-group">
+        <label class="radio-label pos-opt selected" id="posLabel">
+          <input type="radio" name="mood" value="pos" checked onchange="selectMood(this)"> ☀️ 正能量
+        </label>
+        <label class="radio-label neg-opt" id="negLabel">
+          <input type="radio" name="mood" value="neg" onchange="selectMood(this)"> 🌧️ 負能量
+        </label>
+      </div>
+      <button class="btn btn-submit" onclick="addQuote()">儲存語錄</button>
+    </div>
+  </div>
+
+  <!-- My quotes list -->
+  <div class="list-section" id="listSection" style="display:none">
+    <div class="section-header" onclick="toggleSection('listBody','listArrow')">
+      <span class="section-title" id="listTitle">我的語錄</span>
+      <span class="section-arrow" id="listArrow">▼</span>
+    </div>
+    <div class="list-body" id="listBody"></div>
+  </div>
+
+  <div class="install-hint">長按主畫面圖示 → 加入主畫面，即可當 App 使用</div>
+
+</div>
+
+<script>
+/* ─── Built-in quotes ─── */
+const builtins = [
+  { text: "每一天都是一個新的開始，昨天的失敗不定義今天的你。", mood: "pos" },
+  { text: "你比你以為的更勇敢，比你看起來的更強壯。", mood: "pos" },
+  { text: "慢慢來，花時間找到讓你真正快樂的事。", mood: "pos" },
+  { text: "再小的光，也能照亮黑暗的角落。", mood: "pos" },
+  { text: "不必完美，只需真實。", mood: "pos" },
+  { text: "成長是從每一次不舒服的經歷中誕生的。", mood: "pos" },
+  { text: "你所付出的每一分努力，時間都記得。", mood: "pos" },
+  { text: "感到累了，就先停下來喘口氣。休息不是放棄。", mood: "neg" },
+  { text: "並非所有的努力都會立即開花，有些種子需要更長的冬天。", mood: "neg" },
+  { text: "有些關係的結束，是為了讓更好的相遇騰出空間。", mood: "neg" },
+  { text: "悲傷也是愛的一種形式——你在乎，所以才會痛。", mood: "neg" },
+  { text: "接受自己做不到某些事，並不代表你失敗了。", mood: "neg" },
+  { text: "有時候，人生就是沒有答案的，而那也沒關係。", mood: "neg" },
+  { text: "迷路的時候，慢慢走也是一種前進。", mood: "neg" },
+  { text: "不是所有的雲都會散，但你可以學會在雨中站穩。", mood: "neg" },
+];
+
+/* ─── Storage ─── */
+const STORAGE_KEY = 'daily_quote_user_quotes';
+
+function loadUserQuotes() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+  } catch { return []; }
+}
+
+function saveUserQuotes(arr) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
+}
+
+function allQuotes() {
+  return [...builtins, ...loadUserQuotes()];
+}
+
+/* ─── Deterministic daily pick ─── */
+function todayKey() {
+  const d = new Date();
+  return d.getFullYear() * 10000 + (d.getMonth()+1) * 100 + d.getDate();
+}
+
+function getDailyQuote() {
+  const pool = allQuotes();
+  const idx = todayKey() % pool.length;
+  return pool[idx];
+}
+
+/* ─── Render ─── */
+function moodLabel(m) { return m === 'pos' ? '正能量' : '負能量'; }
+function moodClass(m) { return m === 'pos' ? 'pos' : 'neg'; }
+
+function renderCard(card, moodEl, moodTextEl, textEl, authorEl, q) {
+  const mc = moodClass(q.mood);
+  card.className = card.className.replace(/\bpos\b|\bneg\b/g, '').trim() + ' ' + mc;
+  moodEl.className = moodEl.className.replace(/\bpos\b|\bneg\b/g, '').trim() + ' ' + mc;
+  moodTextEl.textContent = moodLabel(q.mood);
+  textEl.textContent = q.text;
+  if (authorEl) authorEl.textContent = q.author ? '— ' + q.author : '';
+}
+
+function initToday() {
+  const q = getDailyQuote();
+  const card = document.getElementById('todayCard');
+  renderCard(
+    card,
+    document.getElementById('todayMood'),
+    document.getElementById('todayMoodText'),
+    document.getElementById('todayText'),
+    document.getElementById('todayAuthor'),
+    q
+  );
+  card.classList.add('flip-anim');
+  card.addEventListener('animationend', () => card.classList.remove('flip-anim'), {once:true});
+}
+
+/* ─── Date display ─── */
+function initDate() {
+  const d = new Date();
+  const days = ['日','一','二','三','四','五','六'];
+  document.getElementById('dateLine').textContent =
+    `${d.getFullYear()} 年 ${d.getMonth()+1} 月 ${d.getDate()} 日　星期${days[d.getDay()]}`;
+}
+
+/* ─── Draw random ─── */
+let lastDrawIdx = -1;
+function drawRandom() {
+  const pool = allQuotes();
+  let idx;
+  // avoid repeating same quote
+  do { idx = Math.floor(Math.random() * pool.length); }
+  while (pool.length > 1 && idx === lastDrawIdx);
+  lastDrawIdx = idx;
+
+  const q = pool[idx];
+  const card = document.getElementById('drawCard');
+  card.classList.add('visible');
+  renderCard(
+    card,
+    document.getElementById('drawMood'),
+    document.getElementById('drawMoodText'),
+    document.getElementById('drawText'),
+    document.getElementById('drawAuthor'),
+    q
+  );
+  card.classList.remove('flip-anim');
+  void card.offsetWidth;
+  card.classList.add('flip-anim');
+  card.addEventListener('animationend', () => card.classList.remove('flip-anim'), {once:true});
+  card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+/* ─── Section toggle ─── */
+function toggleSection(bodyId, arrowId) {
+  const body = document.getElementById(bodyId);
+  const arrow = document.getElementById(arrowId);
+  const open = body.classList.toggle('visible');
+  arrow.classList.toggle('open', open);
+}
+
+/* ─── Mood radio ─── */
+function selectMood(radio) {
+  document.getElementById('posLabel').classList.toggle('selected', radio.value === 'pos');
+  document.getElementById('negLabel').classList.toggle('selected', radio.value === 'neg');
+}
+
+/* ─── Add quote ─── */
+function addQuote() {
+  const txt = document.getElementById('newQuoteText').value.trim();
+  if (!txt) { alert('請輸入語錄內容！'); return; }
+  const mood = document.querySelector('input[name="mood"]:checked').value;
+  const arr = loadUserQuotes();
+  arr.push({ text: txt, mood });
+  saveUserQuotes(arr);
+  document.getElementById('newQuoteText').value = '';
+  renderList();
+  // close add form
+  document.getElementById('addForm').classList.remove('visible');
+  document.getElementById('addArrow').classList.remove('open');
+  // open list
+  const listSection = document.getElementById('listSection');
+  listSection.style.display = '';
+  const listBody = document.getElementById('listBody');
+  if (!listBody.classList.contains('visible')) {
+    listBody.classList.add('visible');
+    document.getElementById('listArrow').classList.add('open');
+  }
+}
+
+/* ─── Delete quote ─── */
+function deleteQuote(idx) {
+  const arr = loadUserQuotes();
+  arr.splice(idx, 1);
+  saveUserQuotes(arr);
+  renderList();
+}
+
+/* ─── Render list ─── */
+function renderList() {
+  const arr = loadUserQuotes();
+  const section = document.getElementById('listSection');
+  const body = document.getElementById('listBody');
+  const title = document.getElementById('listTitle');
+
+  title.textContent = `我的語錄（${arr.length}）`;
+
+  if (arr.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = '';
+
+  if (arr.length === 0) {
+    body.innerHTML = '<div class="list-empty">還沒有自訂語錄</div>';
+    return;
+  }
+
+  body.innerHTML = arr.map((q, i) => `
+    <div class="quote-item">
+      <span class="qi-dot ${moodClass(q.mood)}"></span>
+      <span class="qi-text">${escHtml(q.text)}</span>
+      <button class="qi-del" onclick="deleteQuote(${i})" title="刪除">✕</button>
+    </div>
+  `).join('');
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ─── Init ─── */
+initDate();
+initToday();
+renderList();
+</script>
+</body>
+</html>
